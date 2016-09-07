@@ -13,7 +13,8 @@ import qualified Data.ByteString.Char8 as C
 import Hooq.Postgres.Message
 
 getMessage :: Get Message
-getMessage = backendKeyData
+getMessage = commandComplete
+    <|> backendKeyData
     <|> authenticationOk
     <|> parameterStatus
     <|> readyForQuery
@@ -39,6 +40,14 @@ getCString' = do
     if c == 0
         then return C.empty
         else C.cons (chr $ fromIntegral c) <$> getCString'
+
+-- CommandComplete
+commandComplete :: Get Message
+commandComplete = do
+    getType 'C'
+    len <- getWord32be
+    tag <- getCString'
+    return $ CommandComplete tag
 
 -- BackendKeyData
 backendKeyData :: Get Message

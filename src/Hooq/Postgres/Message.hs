@@ -9,6 +9,7 @@ data Message
     | ParameterStatus String String
     | ReadyForQuery TransactionStatus
     | Query C.ByteString
+    | CommandComplete C.ByteString
     | UnknownMessage Char Word32 C.ByteString
     deriving (Show)
 
