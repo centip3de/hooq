@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Postgres where
+module Hooq.Postgres where
+
+import Hooq.Postgres.Message
 
 import Data.Char
 
@@ -20,6 +22,16 @@ import Data.Binary.Put
 -- 3. Contents of the message follow, structure varying on message type
 --
 -- The very first message sent by a client includes no message-type byte
+recvRawMessage :: Socket -> IO C.ByteString
+recvRawMessage sock = do
+    ty <- recv sock 1
+    len <- runGet getWord32be . B.fromStrict <$> recv sock 4
+    msg <- recv sock $ (fromIntegral len) - 4
+    return $ B.toStrict $ runPut $ do
+        putByteString ty
+        putWord32be len
+        putByteString msg
+
 data RawMessage = RawMessage Char Word32 C.ByteString
     deriving (Show)
 
@@ -28,13 +40,6 @@ putRawMessage (RawMessage ty len msg) = B.toStrict $ runPut $ do
     put ty
     putWord32be len
     put msg
-
-recvRawMessage :: Socket -> IO RawMessage
-recvRawMessage sock = do
-    ty <- C.head <$> recv sock 1
-    len <- runGet getWord32be <$> B.fromStrict <$> recv sock 4
-    msg <- recv sock $ (fromIntegral len) - 4
-    return $ RawMessage ty len msg
 
 type StartupData = M.Map (C.ByteString) (C.ByteString)
 
@@ -56,12 +61,9 @@ startupParams = appendNull . C.concat . map appendNull . concatMap go . M.assocs
 waitForReady :: Socket -> IO ()
 waitForReady sock = do
     msg <- recvRawMessage sock
-    print msg
-
-    case msg of
-        RawMessage ty _ _ -> if ty == 'Z'
-            then return ()
-            else waitForReady sock
+    case runGet getMessage (B.fromStrict msg) of
+        msg -> print msg
+    waitForReady sock
 
 run :: IO ()
 run = withSocketsDo $ do

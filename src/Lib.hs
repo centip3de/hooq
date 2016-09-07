@@ -5,7 +5,6 @@ module Lib
     ( someFunc
     ) where
 
-import Postgres
 import Lens.Micro
 
 someFunc :: IO ()

@@ -1,6 +1,6 @@
 module Main where
 
-import Postgres
+import Hooq.Postgres
 
 main :: IO ()
 main = run

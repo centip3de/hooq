@@ -16,7 +16,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lib
-                     , Postgres
+                     , Hooq.Postgres
+                     , Hooq.Postgres.Message
   build-depends:       base >= 4.7 && < 5
                      , microlens >= 0.4.7.0 && < 0.4.8
                      , bytestring >= 0.10.6.0 && < 0.11
