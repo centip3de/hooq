@@ -11,13 +11,17 @@ import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Char8 as C
 
 data Message
-    = ParameterStatus String String
+    = BackendKeyData Word32 Word32
+    | AuthenticationOk
+    | ParameterStatus String String
     | ReadyForQuery TransactionStatus
     | UnknownMessage Char Word32 C.ByteString
     deriving (Show)
 
 getMessage :: Get Message
-getMessage = parameterStatus
+getMessage = backendKeyData
+    <|> authenticationOk
+    <|> parameterStatus
     <|> readyForQuery
     <|> unknownMessage
 
@@ -41,6 +45,26 @@ getCString' = do
     if c == 0
         then return C.empty
         else C.cons (chr $ fromIntegral c) <$> getCString'
+
+-- BackendKeyData
+backendKeyData :: Get Message
+backendKeyData = do
+    getType 'K'
+    len <- getWord32be
+    guard $ len == 12
+    processId <- getWord32be
+    secretKey <- getWord32be
+    return $ BackendKeyData processId secretKey
+
+-- AuthenticationOk
+authenticationOk :: Get Message
+authenticationOk = do
+    getType 'R'
+    len <- getWord32be
+    guard $ len == 8
+    status <- getWord32be
+    guard $ status == 0
+    return AuthenticationOk
 
 -- ParameterStatus
 parameterStatus :: Get Message
