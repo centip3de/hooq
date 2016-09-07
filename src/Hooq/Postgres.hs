@@ -2,6 +2,8 @@
 module Hooq.Postgres where
 
 import Hooq.Postgres.Message
+import Hooq.Postgres.Message.Get
+import Hooq.Postgres.Message.Put
 
 import Data.Char
 
@@ -20,8 +22,6 @@ import Data.Binary.Put
 -- 1. First byte represents message type
 -- 2. Next four bytes represents message length (including length itself)
 -- 3. Contents of the message follow, structure varying on message type
---
--- The very first message sent by a client includes no message-type byte
 recvRawMessage :: Socket -> IO C.ByteString
 recvRawMessage sock = do
     ty <- recv sock 1
@@ -31,15 +31,6 @@ recvRawMessage sock = do
         putByteString ty
         putWord32be len
         putByteString msg
-
-data RawMessage = RawMessage Char Word32 C.ByteString
-    deriving (Show)
-
-putRawMessage :: RawMessage -> C.ByteString
-putRawMessage (RawMessage ty len msg) = B.toStrict $ runPut $ do
-    put ty
-    putWord32be len
-    put msg
 
 type StartupData = M.Map (C.ByteString) (C.ByteString)
 
@@ -53,10 +44,12 @@ startupMessage dat = B.toStrict $ runPut $ do
     putWord32be 196608
     putByteString dict
 
+appendNull :: C.ByteString -> C.ByteString
+appendNull s = C.append s "\0"
+
 startupParams :: StartupData -> C.ByteString
 startupParams = appendNull . C.concat . map appendNull . concatMap go . M.assocs
     where go (k, v) = [k, v]
-          appendNull s = C.append s "\0"
 
 waitForReady :: Socket -> IO ()
 waitForReady sock = do
@@ -67,6 +60,28 @@ waitForReady sock = do
         ReadyForQuery _ -> return ()
         _ -> waitForReady sock
 
+getTableQuery :: C.ByteString
+getTableQuery = appendNull $ C.concat
+    [ " SELECT c.oid, n.nspname, c.relname"
+    , " FROM pg_catalog.pg_class c"
+    , " LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace"
+    , " WHERE c.relname ~ '^(quotes)$'"
+    , " AND pg_catalog.pg_table_is_visible(c.oid) ORDER BY 2, 3;"
+    ]
+
+printMessages :: Socket -> IO ()
+printMessages sock = do
+    rawmsg <- recvRawMessage sock
+    let msg = runGet getMessage (B.fromStrict rawmsg)
+    print msg
+    printMessages sock
+
+getTable :: Socket -> IO ()
+getTable sock = do
+    let msg = B.toStrict $ runPut $ putMessage (Query getTableQuery)
+    sendAll sock msg
+    printMessages sock
+
 run :: IO ()
 run = withSocketsDo $ do
     addr:_ <- getAddrInfo Nothing (Just "127.0.0.1") (Just "5432")
@@ -75,4 +90,5 @@ run = withSocketsDo $ do
     let msg = startupMessage $ M.fromList [("user", "ujboldoppi4v4ge7kyfc"), ("database", "qdb")]
     sendAll sock msg
     waitForReady sock
+    getTable sock
     close sock

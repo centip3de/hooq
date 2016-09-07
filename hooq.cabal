@@ -18,6 +18,8 @@ library
   exposed-modules:     Lib
                      , Hooq.Postgres
                      , Hooq.Postgres.Message
+                     , Hooq.Postgres.Message.Get
+                     , Hooq.Postgres.Message.Put
   build-depends:       base >= 4.7 && < 5
                      , microlens >= 0.4.7.0 && < 0.4.8
                      , bytestring >= 0.10.6.0 && < 0.11
