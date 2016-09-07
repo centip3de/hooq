@@ -5,6 +5,7 @@ import Control.Applicative
 import Control.Monad
 import Data.Binary.Get
 import Data.Char
+import Data.Int
 import Data.Word
 
 import qualified Data.ByteString.Lazy as B
@@ -13,7 +14,9 @@ import qualified Data.ByteString.Char8 as C
 import Hooq.Postgres.Message
 
 getMessage :: Get Message
-getMessage = commandComplete
+getMessage = rowDescription
+    <|> commandComplete
+    <|> dataRow
     <|> backendKeyData
     <|> authenticationOk
     <|> parameterStatus
@@ -41,6 +44,32 @@ getCString' = do
         then return C.empty
         else C.cons (chr $ fromIntegral c) <$> getCString'
 
+getInt16be :: Get Int16
+getInt16be = fromIntegral <$> getWord16be
+
+getInt32be :: Get Int32
+getInt32be = fromIntegral <$> getWord32be
+
+-- RowDescription
+fieldDescription :: Get FieldDescription
+fieldDescription = do
+    name <- getCString'
+    tableObjectId <- getWord32be
+    columnAttrNum <- getWord16be
+    typeObjectId <- getWord32be
+    typeSize <- getInt16be
+    typeMod <- getWord32be
+    formatCode <- getWord16be
+    return $ FieldDescription name tableObjectId columnAttrNum typeObjectId typeSize typeMod formatCode
+
+rowDescription :: Get Message
+rowDescription = do
+    getType 'T'
+    len <- getWord32be
+    count <- fromIntegral <$> getWord16be
+    fields <- replicateM count fieldDescription
+    return $ RowDescription fields
+
 -- CommandComplete
 commandComplete :: Get Message
 commandComplete = do
@@ -48,6 +77,21 @@ commandComplete = do
     len <- getWord32be
     tag <- getCString'
     return $ CommandComplete tag
+
+-- DataRow
+dataRowColumn :: Get DataRowColumn
+dataRowColumn = do
+    len <- getInt32be
+    if len == -1
+        then return ColumnNull
+        else ColumnData <$> getByteString (fromIntegral len)
+
+dataRow :: Get Message
+dataRow = do
+    getType 'D'
+    len <- getWord32be
+    cols <- getWord16be
+    DataRow <$> replicateM (fromIntegral cols) dataRowColumn
 
 -- BackendKeyData
 backendKeyData :: Get Message

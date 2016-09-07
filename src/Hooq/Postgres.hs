@@ -60,13 +60,22 @@ waitForReady sock = do
         ReadyForQuery _ -> return ()
         _ -> waitForReady sock
 
-getTableQuery :: C.ByteString
-getTableQuery = appendNull $ C.concat
-    [ " SELECT c.oid, n.nspname, c.relname"
+getTableOidQuery :: C.ByteString
+getTableOidQuery = appendNull $ C.concat
+    [ " SELECT c.oid"
     , " FROM pg_catalog.pg_class c"
     , " LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace"
     , " WHERE c.relname = 'quotes'"
-    , " AND pg_catalog.pg_table_is_visible(c.oid) ORDER BY 2, 3;"
+    , " AND pg_catalog.pg_table_is_visible(c.oid);"
+    ]
+
+getTableColumnsQuery :: C.ByteString
+getTableColumnsQuery = appendNull $ C.concat
+    [ " SELECT a.attname"
+    , " pg_catalog.format_type(a.atttypid, a.atttypmod)"
+    , " FROM pg_catalog.pg_attribute a"
+    , " WHERE a.attrelid = '16782' AND a.attnum > 0 AND NOT a.attisdropped"
+    , " ORDER BY a.attnum ASC;"
     ]
 
 printMessages :: Socket -> IO ()
@@ -78,7 +87,7 @@ printMessages sock = do
 
 getTable :: Socket -> IO ()
 getTable sock = do
-    let msg = B.toStrict $ runPut $ putMessage (Query getTableQuery)
+    let msg = B.toStrict $ runPut $ putMessage (Query getTableOidQuery)
     sendAll sock msg
     printMessages sock
 
