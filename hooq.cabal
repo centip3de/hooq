@@ -1,0 +1,47 @@
+name:                hooq
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            https://github.com/forestbelton/hooq#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Forest Belton
+maintainer:          forest@homolo.gy
+copyright:           MIT
+category:            Dunno
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lib
+                     , Postgres
+  build-depends:       base >= 4.7 && < 5
+                     , microlens >= 0.4.7.0 && < 0.4.8
+                     , bytestring >= 0.10.6.0 && < 0.11
+                     , network >= 2.6.3.1 && < 2.7
+                     , containers >= 0.5.6.2 && < 0.6
+                     , binary >= 0.7.5.0 && < 0.8
+  default-language:    Haskell2010
+
+executable hooq-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , hooq
+  default-language:    Haskell2010
+
+test-suite hooq-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , hooq
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/forestbelton/hooq
