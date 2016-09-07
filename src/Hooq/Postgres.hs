@@ -60,10 +60,12 @@ startupParams = appendNull . C.concat . map appendNull . concatMap go . M.assocs
 
 waitForReady :: Socket -> IO ()
 waitForReady sock = do
-    msg <- recvRawMessage sock
-    case runGet getMessage (B.fromStrict msg) of
-        msg -> print msg
-    waitForReady sock
+    rawmsg <- recvRawMessage sock
+    let msg = runGet getMessage (B.fromStrict rawmsg)
+    print msg
+    case msg of
+        ReadyForQuery _ -> return ()
+        _ -> waitForReady sock
 
 run :: IO ()
 run = withSocketsDo $ do
